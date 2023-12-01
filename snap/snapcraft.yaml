@@ -25,6 +25,15 @@ apps:
             - network-bind
             - tee
             - home
+    tee-supplicant:
+        adapter: none
+        command: usr/sbin/tee-supplicant --fs-parent-path /var/lib/snapd/save/snap/$SNAP_INSTANCE_NAME/optee-fs --ta-dir $SNAP_COMMON/lib/optee_armtz --plugin-path $SNAP_COMMON/usr/lib/tee-supplicant/plugins
+        plugs:
+            - tee
+            - network
+    sign-ta:
+        command: bin/sign_encrypt.py
+
 parts:
     optee-os:
         plugin: nil
