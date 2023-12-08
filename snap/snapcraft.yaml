@@ -35,98 +35,115 @@ apps:
         command: bin/sign_encrypt.py
 
 parts:
-    optee-os:
+    tee-kit:
         plugin: nil
-        source-depth: 1
         override-build: |
-            export ARCH="arm"
-            export CROSS_COMPILE="${SNAPCRAFT_ARCH_TRIPLET}-"
-            export CROSS_COMPILE_core="${SNAPCRAFT_ARCH_TRIPLET}-"
-            export CROSS_COMPILE_ta_arm64="${SNAPCRAFT_ARCH_TRIPLET}-"
-            export CFG_USER_TA_TARGETS="ta_arm64"
-            export CFG_ARM64_core=y
-            export DEBUG=0 \
-            export CFG_TEE_CORE_LOG_LEVEL=1 \
-            export CFG_TEE_TA_LOG_LEVEL=1 \
-            export CFG_TEE_BENCHMARK=n
-            export CFG_CORE_HEAP_SIZE=262144
-            # set NXP platform
-            export PLATFORM=imx
-            export PLATFORM_FLAVOR=mx8mpevk
-            export CFG_CORE_HUK_SUBKEY_COMPAT_USE_OTP_DIE_ID=n
-            git clone -b ${VERSION} https://github.com/OP-TEE/optee_os.git
-            mv optee_os/* .
-            rm -fr optee_os
-            make O=${SNAPCRAFT_PART_BUILD}/out -j$(nproc)
-            cp -r ${SNAPCRAFT_PART_BUILD}/out/export-ta_arm* ${SNAPCRAFT_PART_INSTALL}/export-ta_arm
-            ${SNAPCRAFT_ARCH_TRIPLET}-objcopy \
-                 -O binary \
-                 ${SNAPCRAFT_PART_BUILD}/out/core/tee.elf \
-                 ${SNAPCRAFT_PART_INSTALL}/tee.bin
+            git clone https://github.com/OP-TEE/optee_os.git
+            git clone https://github.com/OP-TEE/optee_client.git
+            git clone https://github.com/OP-TEE/optee_test.git
+            cp -r optee_* ${SNAPCRAFT_PART_SRC}/
+            pip3 install -U cryptography>=35.0.0
+            rm -fr *
+  
+            for ver in {19..22}
+            do
+                version=3."${ver}".0
+                mkdir -p ${SNAPCRAFT_PART_INSTALL}/"${version}"
+   
+                # optee-os procedure
+                cd ${SNAPCRAFT_PART_BUILD} 
+                cp -r ${SNAPCRAFT_PART_SRC}/optee_os .
+                cd optee_os
+                git checkout "${version}"
+  
+            cat << EOF > build.sh
+                #! /bin/bash
+                export ARCH="arm"
+                export CROSS_COMPILE="${SNAPCRAFT_ARCH_TRIPLET}-"
+                export CROSS_COMPILE_core="${SNAPCRAFT_ARCH_TRIPLET}-"
+                export CROSS_COMPILE_ta_arm64="${SNAPCRAFT_ARCH_TRIPLET}-"
+                export CFG_USER_TA_TARGETS="ta_arm64"
+                export CFG_ARM64_core=y
+                export DEBUG=0 \
+                export CFG_TEE_CORE_LOG_LEVEL=1 \
+                export CFG_TEE_TA_LOG_LEVEL=1 \
+                export CFG_TEE_BENCHMARK=n
+                export CFG_CORE_HEAP_SIZE=262144
+                export PLATFORM=imx
+                export PLATFORM_FLAVOR=mx8mmevk
+                export CFG_CORE_HUK_SUBKEY_COMPAT_USE_OTP_DIE_ID=n
+      
+                make O=${SNAPCRAFT_PART_BUILD}/optee_os/out -j$(nproc)
+            EOF
+                chmod +x build.sh
+                sh build.sh
+                cp -r ${SNAPCRAFT_PART_BUILD}/optee_os/out/export-ta_arm* ${SNAPCRAFT_PART_INSTALL}/"${version}"/export-ta_arm
+  
+  
+                # optee-client procedure
+                cd ${SNAPCRAFT_PART_BUILD}
+                cp -r ${SNAPCRAFT_PART_SRC}/optee_client .
+                cd optee_client
+                git checkout "${version}"
+  
+            cat << EOF > build.sh
+                #! /bin/bash
+                export ARCH="arm64"
+                export LDFLAGS="-Wl,--strip-all"
+                export DEBUG=0 \
+                export CROSS_COMPILE="${SNAPCRAFT_ARCH_TRIPLET}-"
+                export CFG_TEE_CLIENT_LOAD_PATH="" \
+                export CFG_TA_TEST_PATH=0 \
+                export CFG_TEE_SUPP_LOG_LEVEL=0 \
+                export SBINDIR=/usr/sbin
+                export LIBDIR="/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}"
+    
+                # we need new python cryptography
+                make -j$(nproc)
+            EOF
+                chmod +x build.sh
+                sh build.sh
+                cp -r out/export/usr "${SNAPCRAFT_PART_INSTALL}"/"${version}"/
+      
+                # optee-test
+                cd ${SNAPCRAFT_PART_BUILD}
+                cp -r ${SNAPCRAFT_PART_SRC}/optee_test .
+                cd optee_test
+                git checkout "${version}"
+  
+            cat << EOF > build.sh
+                #! /bin/bash
+                export CROSS_COMPILE="${SNAPCRAFT_ARCH_TRIPLET}-"
+                export TA_DEV_KIT_DIR="${SNAPCRAFT_PART_INSTALL}/${version}/export-ta_arm"
+                export CFG_TEE_CLIENT_LOG_LEVEL="2"
+                export OPTEE_CLIENT_EXPORT="${SNAPCRAFT_PART_INSTALL}/${version}/usr"
+                export DESTDIR="${SNAPCRAFT_PART_INSTALL}/${version}"
+                export WITH_OPENSSL="y"
+                export CFG_PKCS11_TA="y"
+                export BINDIR="/usr/bin"
+                export LIBDIR="/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}"
+                export SBINDIR="/usr/sbin"
+                export ARCH="${SNAPCRAFT_TARGET_ARCH}"
+                export CFG_USER_TA_TARGETS="ta_arm64"
+                export CROSS_COMPILE_ta_arm64="${SNAPCRAFT_ARCH_TRIPLET}-"
+                export O="${SNAPCRAFT_PART_BUILD}/optee_test/out"
+                export LDFLAGS="-L${SNAPCRAFT_PART_INSTALL}/${version}/usr/lib -L${SNAPCRAFT_PART_INSTALL}/${version}/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}"
+                export CPPFLAGS=-isystem${SNAPCRAFT_PART_INSTALL}/${version}/usr/include
+                export CFLAGS=-isystem${SNAPCRAFT_PART_INSTALL}/${version}/usr/include
+                make -j$(nproc)
+                make install
+    
+            EOF
+                chmod +x build.sh
+                sh build.sh
+  
+                #Post build procedure
+                cp ${SNAPCRAFT_PART_INSTALL}/"${version}"/export-ta_arm/scripts/sign_encrypt.py ${SNAPCRAFT_PART_INSTALL}/"${version}"/bin
+                cd ${SNAPCRAFT_PART_BUILD}
+                rm -fr ${SNAPCRAFT_PART_INSTALL}/"${version}"/export-ta_arm
+                rm -fr *
+            done
 
-        prime:
-            - -*
-
-    optee-client:
-        plugin: make
-        source-depth: 1
-        make-parameters:
-            - ARCH="arm64"
-            - LDFLAGS="-Wl,--strip-all"
-            - DEBUG=0
-            - CROSS_COMPILE="${SNAPCRAFT_ARCH_TRIPLET}-"
-            - CFG_TEE_CLIENT_LOAD_PATH=""
-            - CFG_TA_TEST_PATH=0
-            - CFG_TEE_SUPP_LOG_LEVEL=0
-            - SBINDIR=/usr/sbin
-            - LIBDIR=/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}
-        build-packages:
-            - pkg-config
-            - uuid-dev
-            - to arm64:
-                - uuid-dev:arm64
-        override-build: |
-          # we need new python cryptography
-          git clone -b ${VERSION} https://github.com/OP-TEE/optee_client.git
-          mv optee_client/* .
-          rm -fr optee_client
-          snapcraftctl build
-
-        stage:
-            - usr/*
-        prime:
-            - usr/sbin
-            - usr/lib/*/lib*so*
-
-    optee-test:
-       after:
-         - optee-os
-         - optee-client
-       plugin: make
-       make-parameters:
-         - CROSS_COMPILE="${SNAPCRAFT_ARCH_TRIPLET}-"
-         - TA_DEV_KIT_DIR="${SNAPCRAFT_STAGE}/export-ta_arm"
-         - CFG_TEE_CLIENT_LOG_LEVEL="2"
-         - OPTEE_CLIENT_EXPORT="${SNAPCRAFT_STAGE}/usr"
-         - DESTDIR="${SNAPCRAFT_PART_INSTALL}"
-         - WITH_OPENSSL="y"
-         - CFG_PKCS11_TA="y"
-         - BINDIR="/usr/bin"
-         - LIBDIR="/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}"
-         - SBINDIR="/usr/sbin"
-         - ARCH="${SNAPCRAFT_TARGET_ARCH}"
-         - CFG_USER_TA_TARGETS="ta_arm64"
-         - CROSS_COMPILE_ta_arm64="${SNAPCRAFT_ARCH_TRIPLET}-"
-         - O="${SNAPCRAFT_PART_BUILD}/out"
-       override-build: |
-         # we need new python cryptography
-         git clone -b ${VERSION} https://github.com/OP-TEE/optee_test.git
-         mv optee_test/* .
-         rm -fr optee_test
-         pip3 install -U cryptography>=35.0.0
-         snapcraftctl build
-         cp ${SNAPCRAFT_STAGE}/export-ta_arm/scripts/sign_encrypt.py ${SNAPCRAFT_PART_INSTALL}/bin
- 
 build-packages:
     - bison
     - build-essential
