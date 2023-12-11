@@ -15,24 +15,27 @@ confinement: strict
 grade: stable
 
 environment:
-    LD_LIBRARY_PATH: ${SNAP}/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}
-    PATH: ${SNAP}/bin:${PATH}
+    LD_LIBRARY_PATH: ${SNAP}/tmp/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}
+    PATH: ${SNAP}/bin:${SNAP}/tmp/bin:${SNAP}/tmp/usr/sbin:${PATH}
 
 apps:
     xtest:
-        command: bin/xtest
+        command: bin/wrapper xtest
         plugs:
             - network-bind
             - tee
             - home
+            - xtest
     tee-supplicant:
-        adapter: none
-        command: usr/sbin/tee-supplicant --fs-parent-path /var/lib/snapd/save/snap/$SNAP_INSTANCE_NAME/optee-fs --ta-dir $SNAP_COMMON/lib/optee_armtz --plugin-path $SNAP_COMMON/usr/lib/tee-supplicant/plugins
+        command: bin/wrapper tee-supplicant
         plugs:
             - tee
             - network
+            - xtest
     sign-ta:
-        command: bin/sign_encrypt.py
+        command: bin/wrapper sign-ta
+        plugs:
+            - xtest
 
 parts:
     tee-kit:
@@ -45,7 +48,7 @@ parts:
             pip3 install -U cryptography>=35.0.0
             rm -fr *
   
-            for ver in {19..22}
+            for ver in {14..22}
             do
                 version=3."${ver}".0
                 mkdir -p ${SNAPCRAFT_PART_INSTALL}/"${version}"
@@ -143,6 +146,30 @@ parts:
                 rm -fr ${SNAPCRAFT_PART_INSTALL}/"${version}"/export-ta_arm
                 rm -fr *
             done
+    wrapper:
+        plugin: nil
+        override-build: |
+            cat << EOF > wrapper
+            #! /bin/bash
+            if [ "\$1" == "xtest" ]
+            then
+                shift;
+                xtest \$@
+            elif [ "\$1" == "tee-supplicant" ]
+            then
+               tee-supplicant --fs-parent-path /var/lib/snapd/save/snap/$SNAP_INSTANCE_NAME/optee-fs --ta-dir $SNAP_COMMON/lib/optee_armtz --plugin-path $SNAP_COMMON/usr/lib/tee-supplicant/plugins
+            elif [ "\$1" == "sign-ta" ]
+            then
+               shift;
+               sign_encrypt.py \$@
+            fi
+            EOF
+
+            chmod +x wrapper
+            mkdir ${SNAPCRAFT_PART_INSTALL}/bin
+            mkdir ${SNAPCRAFT_PART_INSTALL}/tmp
+            cp wrapper ${SNAPCRAFT_PART_INSTALL}/bin
+
 
 build-packages:
     - bison
@@ -162,3 +189,45 @@ build-packages:
     - zlib1g-dev
     - to arm64:
         - uuid-dev:arm64
+plugs:
+    xtest:
+        interface: content
+        target: $SNAP/tmp
+slots:
+    xtest-314:
+        interface: content
+        read:
+            - $SNAP/3.14.0
+    xtest-315:
+        interface: content
+        read:
+            - $SNAP/3.15.0
+    xtest-316:
+        interface: content
+        read:
+            - $SNAP/3.16.0
+    xtest-317:
+        interface: content
+        read:
+            - $SNAP/3.17.0
+    xtest-318:
+        interface: content
+        read:
+            - $SNAP/3.18.0
+    xtest-319:
+        interface: content
+        read:
+            - $SNAP/3.19.0
+    xtest-320:
+        interface: content
+        read:
+            - $SNAP/3.20.0
+    xtest-321:
+        interface: content
+        read:
+            - $SNAP/3.21.0
+    xtest-322:
+        interface: content
+        read:
+            - $SNAP/3.22.0
+
