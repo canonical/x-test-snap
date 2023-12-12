@@ -1,0 +1,3 @@
+#! /bin/bash
+
+cp $SNAP/tmp/lib/optee_armtz/* $SNAP_COMMON/lib/optee_armtz

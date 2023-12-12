@@ -18,6 +18,9 @@ environment:
     LD_LIBRARY_PATH: ${SNAP}/tmp/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}
     PATH: ${SNAP}/bin:${SNAP}/tmp/bin:${SNAP}/tmp/usr/sbin:${PATH}
 
+layout:
+    /usr/lib/optee_armtz:
+        bind: $SNAP_COMMON/lib/optee_armtz
 apps:
     xtest:
         command: bin/wrapper xtest
@@ -153,8 +156,8 @@ parts:
             #! /bin/bash
             if [ "\$1" == "xtest" ]
             then
-                shift;
-                xtest \$@
+                xtest --install-ta /var/snap/x-test/common/lib/optee_armtz
+                xtest
             elif [ "\$1" == "tee-supplicant" ]
             then
                tee-supplicant --fs-parent-path /var/lib/snapd/save/snap/$SNAP_INSTANCE_NAME/optee-fs --ta-dir $SNAP_COMMON/lib/optee_armtz --plugin-path $SNAP_COMMON/usr/lib/tee-supplicant/plugins
@@ -169,6 +172,7 @@ parts:
             mkdir ${SNAPCRAFT_PART_INSTALL}/bin
             mkdir ${SNAPCRAFT_PART_INSTALL}/tmp
             cp wrapper ${SNAPCRAFT_PART_INSTALL}/bin
+            mkdir -p ${SNAPCRAFT_PART_INSTALL}/lib/optee_armtz
 
 
 build-packages:
