@@ -160,7 +160,7 @@ parts:
                 xtest
             elif [ "\$1" == "tee-supplicant" ]
             then
-               tee-supplicant --fs-parent-path /var/lib/snapd/save/snap/$SNAP_INSTANCE_NAME/optee-fs --ta-dir $SNAP_COMMON/lib/optee_armtz --plugin-path $SNAP_COMMON/usr/lib/tee-supplicant/plugins
+               tee-supplicant --fs-parent-path /var/lib/snapd/save/snap/\$SNAP_INSTANCE_NAME/optee-fs --ta-dir \$SNAP_COMMON/lib/optee_armtz --plugin-path \$SNAP_COMMON/usr/lib/tee-supplicant/plugins
             elif [ "\$1" == "sign-ta" ]
             then
                shift;
