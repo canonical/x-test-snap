@@ -39,6 +39,10 @@ apps:
         command: bin/wrapper sign-ta
         plugs:
             - xtest
+    unsign-ta:
+        command: bin/wrapper unsign-ta
+        plugs:
+            - xtest
 
 parts:
     tee-kit:
@@ -138,6 +142,8 @@ parts:
                 export CFLAGS=-isystem${SNAPCRAFT_PART_INSTALL}/${version}/usr/include
                 make -j$(nproc)
                 make install
+                mkdir -p ${SNAPCRAFT_PART_INSTALL}/${version}/unsigned_elf
+                find  ${SNAPCRAFT_PART_BUILD}/optee_test/out -name *stripped.elf -exec cp {} ${SNAPCRAFT_PART_INSTALL}/${version}/unsigned_elf \;
     
             EOF
                 chmod +x build.sh
@@ -156,15 +162,27 @@ parts:
             #! /bin/bash
             if [ "\$1" == "xtest" ]
             then
-                xtest --install-ta /var/snap/x-test/common/lib/optee_armtz
+                xtest --install-ta \$SNAP_COMMON/lib/optee_armtz
                 xtest
             elif [ "\$1" == "tee-supplicant" ]
             then
                tee-supplicant --fs-parent-path /var/lib/snapd/save/snap/\$SNAP_INSTANCE_NAME/optee-fs --ta-dir \$SNAP_COMMON/lib/optee_armtz --plugin-path \$SNAP_COMMON/usr/lib/tee-supplicant/plugins
             elif [ "\$1" == "sign-ta" ]
             then
-               shift;
-               sign_encrypt.py \$@
+                shift;
+                for ta in \$SNAP/tmp/unsigned_elf/*
+                do
+                    ta_name=\`basename \$ta\`
+                    user_ta_uuid=\`echo \$ta_name | awk -F. '{print \$1}'\`
+                    sign_encrypt.py \\
+                    \$@ \\
+                    --uuid \$user_ta_uuid \\
+                    --ta-version 0 \\
+                    --in \$SNAP/tmp/unsigned_elf/"\$user_ta_uuid".stripped.elf --out \$SNAP_COMMON/lib/optee_armtz/"\$user_ta_uuid".ta
+                done
+            elif [ "\$1" == "unsign-ta" ]
+            then
+                cp \$SNAP/tmp/lib/optee_armtz/* \$SNAP_COMMON/lib/optee_armtz
             fi
             EOF
 
