@@ -21,6 +21,9 @@ environment:
 layout:
     /usr/lib/optee_armtz:
         bind: $SNAP_COMMON/lib/optee_armtz
+    /usr/lib/tee-supplicant/plugins:
+        bind: $SNAP_COMMON/usr/lib/tee-supplicant/plugins
+
 apps:
     xtest:
         command: bin/wrapper xtest

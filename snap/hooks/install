@@ -1,4 +1,5 @@
 #!/bin/sh
 
 mkdir -p ${SNAP_COMMON}/lib/optee_armtz
+mkdir -p ${SNAP_COMMON}/usr/lib/tee-supplicant/plugins
 
