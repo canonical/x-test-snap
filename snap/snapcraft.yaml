@@ -47,6 +47,10 @@ apps:
         plugs:
             - xtest
 
+    import:
+        command: bin/wrapper import
+
+
 parts:
     tee-kit:
         plugin: nil
@@ -186,7 +190,11 @@ parts:
             elif [ "\$1" == "unsign-ta" ]
             then
                 cp \$SNAP/tmp/lib/optee_armtz/* \$SNAP_COMMON/lib/optee_armtz
+            elif [ "\$1" == "import" ]
+            then
+                cp \$2/* \$SNAP_COMMON/lib/optee_armtz
             fi
+
             EOF
 
             chmod +x wrapper
