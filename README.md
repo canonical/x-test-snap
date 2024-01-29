@@ -32,19 +32,19 @@ Build:
 Clean:
     you can simply run ./run.sh clean
 
-How to use:
-    choose x-test version:
-    sudo snap x-test:xtest x-test:xtest-<314~422>
+How to use:<br />
+    choose x-test version:<br />
+    sudo snap x-test:xtest x-test:xtest-<314~422><br />
 
-command:
-    x-test.xtest:
-        run xtest
-    x-test.tee-supplicant:
-        run tee-supplicant (in case your system not support tee-supplicant )
-    x-test.sign-ta:
-        local sign TAs, please read the help 
-    x-test.unsign-ta:
-        restore unsign TAs       
+command:<br />
+    x-test.xtest:<br />
+        run xtest<br />
+    x-test.tee-supplicant:<br />
+        run tee-supplicant (in case your system not support tee-supplicant )<br />
+    x-test.sign-ta:<br />
+        local sign TAs, please read the help <br />
+    x-test.unsign-ta:<br />
+        restore unsign TAs
     x-test.import:
         import your own TAs, please connect x-test first before you import your TAs.
         command example: x-test.import <your TAs folder/TA>
