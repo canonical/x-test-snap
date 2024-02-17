@@ -2,7 +2,7 @@
 
 if [ "$1" == "build" ]
 then
-    snapcraft --destructive-mode --target-arch=arm64 --enable-experimental-target-arch
+    snapcraft --destructive-mode --target-arch=armhf --enable-experimental-target-arch
 
 elif [ "$1" == "clean" ]
 then
