@@ -8,8 +8,7 @@ type: app
 base: core20
 
 architectures:
-  - build-on: [amd64, arm64]
-    run-on: arm64
+  - build-on: arm64
 
 confinement: strict
 grade: stable
@@ -61,18 +60,18 @@ parts:
             cp -r optee_* ${SNAPCRAFT_PART_SRC}/
             pip3 install -U cryptography>=35.0.0
             rm -fr *
-  
+
             for ver in {14..22}
             do
                 version=3."${ver}".0
                 mkdir -p ${SNAPCRAFT_PART_INSTALL}/"${version}"
-   
+
                 # optee-os procedure
-                cd ${SNAPCRAFT_PART_BUILD} 
+                cd ${SNAPCRAFT_PART_BUILD}
                 cp -r ${SNAPCRAFT_PART_SRC}/optee_os .
                 cd optee_os
                 git checkout "${version}"
-  
+
             cat << EOF > build.sh
                 #! /bin/bash
                 export ARCH="arm"
@@ -89,20 +88,20 @@ parts:
                 export PLATFORM=imx
                 export PLATFORM_FLAVOR=mx8mmevk
                 export CFG_CORE_HUK_SUBKEY_COMPAT_USE_OTP_DIE_ID=n
-      
+
                 make O=${SNAPCRAFT_PART_BUILD}/optee_os/out -j$(nproc)
             EOF
                 chmod +x build.sh
                 sh build.sh
                 cp -r ${SNAPCRAFT_PART_BUILD}/optee_os/out/export-ta_arm* ${SNAPCRAFT_PART_INSTALL}/"${version}"/export-ta_arm
-  
-  
+
+
                 # optee-client procedure
                 cd ${SNAPCRAFT_PART_BUILD}
                 cp -r ${SNAPCRAFT_PART_SRC}/optee_client .
                 cd optee_client
                 git checkout "${version}"
-  
+
             cat << EOF > build.sh
                 #! /bin/bash
                 export ARCH="arm64"
@@ -114,20 +113,20 @@ parts:
                 export CFG_TEE_SUPP_LOG_LEVEL=0 \
                 export SBINDIR=/usr/sbin
                 export LIBDIR="/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}"
-    
+
                 # we need new python cryptography
                 make -j$(nproc)
             EOF
                 chmod +x build.sh
                 sh build.sh
                 cp -r out/export/usr "${SNAPCRAFT_PART_INSTALL}"/"${version}"/
-      
+
                 # optee-test
                 cd ${SNAPCRAFT_PART_BUILD}
                 cp -r ${SNAPCRAFT_PART_SRC}/optee_test .
                 cd optee_test
                 git checkout "${version}"
-  
+
             cat << EOF > build.sh
                 #! /bin/bash
                 export CROSS_COMPILE="${SNAPCRAFT_ARCH_TRIPLET}-"
@@ -151,11 +150,11 @@ parts:
                 make install
                 mkdir -p ${SNAPCRAFT_PART_INSTALL}/${version}/unsigned_elf
                 find  ${SNAPCRAFT_PART_BUILD}/optee_test/out -name *stripped.elf -exec cp {} ${SNAPCRAFT_PART_INSTALL}/${version}/unsigned_elf \;
-    
+
             EOF
                 chmod +x build.sh
                 sh build.sh
-  
+
                 #Post build procedure
                 cp ${SNAPCRAFT_PART_INSTALL}/"${version}"/export-ta_arm/scripts/sign_encrypt.py ${SNAPCRAFT_PART_INSTALL}/"${version}"/bin
                 cd ${SNAPCRAFT_PART_BUILD}
@@ -169,8 +168,16 @@ parts:
             #! /bin/bash
             if [ "\$1" == "xtest" ]
             then
-                xtest --install-ta \$SNAP_COMMON/lib/optee_armtz
-                xtest
+                if [ "\$2" == "--install-ta" ]
+                then
+                    xtest "\$2" \$SNAP_COMMON/lib/optee_armtz
+                elif [ "\$2" == "-t" ]
+                then
+                    "\$@"
+                else
+                    xtest --install-ta \$SNAP_COMMON/lib/optee_armtz
+                    xtest
+                fi
             elif [ "\$1" == "tee-supplicant" ]
             then
                tee-supplicant --fs-parent-path /var/lib/snapd/save/snap/\$SNAP_INSTANCE_NAME/optee-fs --ta-dir \$SNAP_COMMON/lib/optee_armtz --plugin-path \$SNAP_COMMON/usr/lib/tee-supplicant/plugins
@@ -209,8 +216,6 @@ build-packages:
     - build-essential
     - device-tree-compiler
     - flex
-    - gcc-aarch64-linux-gnu
-    - g++-aarch64-linux-gnu
     - libxml2-dev
     - libssl-dev
     - python3
@@ -222,8 +227,6 @@ build-packages:
     - pkg-config
     - uuid-dev
     - zlib1g-dev
-    - to arm64:
-        - uuid-dev:arm64
 plugs:
     xtest:
         interface: content
