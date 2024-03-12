@@ -166,24 +166,25 @@ parts:
         override-build: |
             cat << EOF > wrapper
             #! /bin/bash
-            if [ "\$1" == "xtest" ]
+            cmd="\$1"
+            shift
+            if [ "\$cmd" == "xtest" ]
             then
-                if [ "\$2" == "--install-ta" ]
+                if [ "\$1" == "--install-ta" ]
                 then
-                    xtest "\$2" \$SNAP_COMMON/lib/optee_armtz
-                elif [ "\$2" == "-t" ]
+                    "\$cmd" "\$1" \$SNAP_COMMON/lib/optee_armtz
+                elif [ "\$1" == "-t" ]
                 then
-                    "\$@"
+                    "\$cmd" "\$@"
                 else
-                    xtest --install-ta \$SNAP_COMMON/lib/optee_armtz
-                    xtest
+                    "\$cmd" --install-ta \$SNAP_COMMON/lib/optee_armtz
+                    "\$cmd"
                 fi
-            elif [ "\$1" == "tee-supplicant" ]
+            elif [ "\$cmd" == "tee-supplicant" ]
             then
                tee-supplicant --fs-parent-path /var/lib/snapd/save/snap/\$SNAP_INSTANCE_NAME/optee-fs --ta-dir \$SNAP_COMMON/lib/optee_armtz --plugin-path \$SNAP_COMMON/usr/lib/tee-supplicant/plugins
-            elif [ "\$1" == "sign-ta" ]
+            elif [ "\$cmd" == "sign-ta" ]
             then
-                shift;
                 for ta in \$SNAP/tmp/unsigned_elf/*
                 do
                     ta_name=\`basename \$ta\`
@@ -194,12 +195,12 @@ parts:
                     --ta-version 0 \\
                     --in \$SNAP/tmp/unsigned_elf/"\$user_ta_uuid".stripped.elf --out \$SNAP_COMMON/lib/optee_armtz/"\$user_ta_uuid".ta
                 done
-            elif [ "\$1" == "unsign-ta" ]
+            elif [ "\$cmd" == "unsign-ta" ]
             then
                 cp \$SNAP/tmp/lib/optee_armtz/* \$SNAP_COMMON/lib/optee_armtz
-            elif [ "\$1" == "import" ]
+            elif [ "\$cmd" == "import" ]
             then
-                cp \$2/* \$SNAP_COMMON/lib/optee_armtz
+                cp \$@/* \$SNAP_COMMON/lib/optee_armtz
             fi
 
             EOF
