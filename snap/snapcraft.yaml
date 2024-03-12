@@ -173,7 +173,7 @@ parts:
                     xtest "\$2" \$SNAP_COMMON/lib/optee_armtz
                 elif [ "\$2" == "-t" ]
                 then
-                    xtest "\$2" "\$3" "\$4"
+                    "\$@"
                 else
                     xtest --install-ta \$SNAP_COMMON/lib/optee_armtz
                     xtest
