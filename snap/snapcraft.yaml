@@ -33,6 +33,8 @@ apps:
             - xtest
     tee-supplicant:
         command: bin/wrapper tee-supplicant
+        daemon: simple
+        install-mode: disable
         plugs:
             - tee
             - network
@@ -64,13 +66,17 @@ parts:
             for ver in {14..22}
             do
                 version=3."${ver}".0
-                mkdir -p ${SNAPCRAFT_PART_INSTALL}/"${version}"
 
-                # optee-os procedure
-                cd ${SNAPCRAFT_PART_BUILD}
-                cp -r ${SNAPCRAFT_PART_SRC}/optee_os .
-                cd optee_os
-                git checkout "${version}"
+                for rpmb_emu in {0..1}
+                do
+                    inst_dir="$([ "${rpmb_emu}" == "0" ] && echo "${version}-rpmb" || echo "${version}")"
+                    mkdir -p ${SNAPCRAFT_PART_INSTALL}/"${inst_dir}"
+
+                    # optee-os procedure
+                    cd ${SNAPCRAFT_PART_BUILD}
+                    cp -r ${SNAPCRAFT_PART_SRC}/optee_os .
+                    cd optee_os
+                    git checkout "${version}"
 
             cat << EOF > build.sh
                 #! /bin/bash
@@ -91,16 +97,16 @@ parts:
 
                 make O=${SNAPCRAFT_PART_BUILD}/optee_os/out -j$(nproc)
             EOF
-                chmod +x build.sh
-                sh build.sh
-                cp -r ${SNAPCRAFT_PART_BUILD}/optee_os/out/export-ta_arm* ${SNAPCRAFT_PART_INSTALL}/"${version}"/export-ta_arm
+                    chmod +x build.sh
+                    sh build.sh
+                    cp -r ${SNAPCRAFT_PART_BUILD}/optee_os/out/export-ta_arm* ${SNAPCRAFT_PART_INSTALL}/"${inst_dir}"/export-ta_arm
 
 
-                # optee-client procedure
-                cd ${SNAPCRAFT_PART_BUILD}
-                cp -r ${SNAPCRAFT_PART_SRC}/optee_client .
-                cd optee_client
-                git checkout "${version}"
+                    # optee-client procedure
+                    cd ${SNAPCRAFT_PART_BUILD}
+                    cp -r ${SNAPCRAFT_PART_SRC}/optee_client .
+                    cd optee_client
+                    git checkout "${version}"
 
             cat << EOF > build.sh
                 #! /bin/bash
@@ -113,27 +119,28 @@ parts:
                 export CFG_TEE_SUPP_LOG_LEVEL=0 \
                 export SBINDIR=/usr/sbin
                 export LIBDIR="/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}"
+                export RPMB_EMU=${rpmb_emu}
 
                 # we need new python cryptography
                 make -j$(nproc)
             EOF
-                chmod +x build.sh
-                sh build.sh
-                cp -r out/export/usr "${SNAPCRAFT_PART_INSTALL}"/"${version}"/
+                    chmod +x build.sh
+                    sh build.sh
+                    cp -r out/export/usr "${SNAPCRAFT_PART_INSTALL}"/"${inst_dir}"/
 
-                # optee-test
-                cd ${SNAPCRAFT_PART_BUILD}
-                cp -r ${SNAPCRAFT_PART_SRC}/optee_test .
-                cd optee_test
-                git checkout "${version}"
+                    # optee-test
+                    cd ${SNAPCRAFT_PART_BUILD}
+                    cp -r ${SNAPCRAFT_PART_SRC}/optee_test .
+                    cd optee_test
+                    git checkout "${version}"
 
             cat << EOF > build.sh
                 #! /bin/bash
                 export CROSS_COMPILE="${SNAPCRAFT_ARCH_TRIPLET}-"
-                export TA_DEV_KIT_DIR="${SNAPCRAFT_PART_INSTALL}/${version}/export-ta_arm"
+                export TA_DEV_KIT_DIR="${SNAPCRAFT_PART_INSTALL}/${inst_dir}/export-ta_arm"
                 export CFG_TEE_CLIENT_LOG_LEVEL="2"
-                export OPTEE_CLIENT_EXPORT="${SNAPCRAFT_PART_INSTALL}/${version}/usr"
-                export DESTDIR="${SNAPCRAFT_PART_INSTALL}/${version}"
+                export OPTEE_CLIENT_EXPORT="${SNAPCRAFT_PART_INSTALL}/${inst_dir}/usr"
+                export DESTDIR="${SNAPCRAFT_PART_INSTALL}/${inst_dir}"
                 export WITH_OPENSSL="y"
                 export CFG_PKCS11_TA="y"
                 export BINDIR="/usr/bin"
@@ -143,23 +150,25 @@ parts:
                 export CFG_USER_TA_TARGETS="ta_arm64"
                 export CROSS_COMPILE_ta_arm64="${SNAPCRAFT_ARCH_TRIPLET}-"
                 export O="${SNAPCRAFT_PART_BUILD}/optee_test/out"
-                export LDFLAGS="-L${SNAPCRAFT_PART_INSTALL}/${version}/usr/lib -L${SNAPCRAFT_PART_INSTALL}/${version}/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}"
-                export CPPFLAGS=-isystem${SNAPCRAFT_PART_INSTALL}/${version}/usr/include
-                export CFLAGS=-isystem${SNAPCRAFT_PART_INSTALL}/${version}/usr/include
+                export LDFLAGS="-L${SNAPCRAFT_PART_INSTALL}/${inst_dir}/usr/lib -L${SNAPCRAFT_PART_INSTALL}/${inst_dir}/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}"
+                export CPPFLAGS=-isystem${SNAPCRAFT_PART_INSTALL}/${inst_dir}/usr/include
+                export CFLAGS=-isystem${SNAPCRAFT_PART_INSTALL}/${inst_dir}/usr/include
                 make -j$(nproc)
                 make install
-                mkdir -p ${SNAPCRAFT_PART_INSTALL}/${version}/unsigned_elf
-                find  ${SNAPCRAFT_PART_BUILD}/optee_test/out -name *stripped.elf -exec cp {} ${SNAPCRAFT_PART_INSTALL}/${version}/unsigned_elf \;
+                mkdir -p ${SNAPCRAFT_PART_INSTALL}/${inst_dir}/unsigned_elf
+                find  ${SNAPCRAFT_PART_BUILD}/optee_test/out -name *stripped.elf -exec cp {} ${SNAPCRAFT_PART_INSTALL}/${inst_dir}/unsigned_elf \;
 
             EOF
-                chmod +x build.sh
-                sh build.sh
+                    chmod +x build.sh
+                    sh build.sh
 
-                #Post build procedure
-                cp ${SNAPCRAFT_PART_INSTALL}/"${version}"/export-ta_arm/scripts/sign_encrypt.py ${SNAPCRAFT_PART_INSTALL}/"${version}"/bin
-                cd ${SNAPCRAFT_PART_BUILD}
-                rm -fr ${SNAPCRAFT_PART_INSTALL}/"${version}"/export-ta_arm
-                rm -fr *
+                    #Post build procedure
+                    cp ${SNAPCRAFT_PART_INSTALL}/"${inst_dir}"/export-ta_arm/scripts/sign_encrypt.py ${SNAPCRAFT_PART_INSTALL}/"${inst_dir}"/bin
+                    cp ${SNAPCRAFT_PART_INSTALL}/"${inst_dir}"/export-ta_arm/ta/fd02c9da-306c-48c7-a49c-bbd827ae86ee.ta ${SNAPCRAFT_PART_INSTALL}/"${inst_dir}"/lib/optee_armtz/
+                    cd ${SNAPCRAFT_PART_BUILD}
+                    rm -fr ${SNAPCRAFT_PART_INSTALL}/"${inst_dir}"/export-ta_arm
+                    rm -fr *
+                done
             done
     wrapper:
         plugin: nil
@@ -182,7 +191,15 @@ parts:
                 fi
             elif [ "\$cmd" == "tee-supplicant" ]
             then
-               "\$cmd" --fs-parent-path /var/lib/snapd/save/snap/\$SNAP_INSTANCE_NAME/optee-fs --ta-dir \$SNAP_COMMON/lib/optee_armtz --plugin-path \$SNAP_COMMON/usr/lib/tee-supplicant/plugins
+               if ! snapctl is-connected xtest; then
+                   echo "Please connect the "xtest" interface:"
+                   echo "  sudo snap connect x-test:xtest x-test:xtest-<314~322>"
+                   echo "and then start tee-supplicant service"
+                   echo "  sudo snap start x-test.tee-supplicant"
+                   exit 1
+               else
+                   "\$cmd" --fs-parent-path /var/lib/snapd/save/snap/\$SNAP_INSTANCE_NAME/optee-fs --ta-dir \$SNAP_COMMON/lib/optee_armtz --plugin-path \$SNAP_COMMON/usr/lib/tee-supplicant/plugins
+               fi
             elif [ "\$cmd" == "sign-ta" ]
             then
                 for ta in \$SNAP/tmp/unsigned_elf/*
@@ -238,36 +255,71 @@ slots:
         interface: content
         read:
             - $SNAP/3.14.0
+    xtest-314-rpmb:
+        interface: content
+        read:
+            - $SNAP/3.14.0-rpmb
     xtest-315:
         interface: content
         read:
             - $SNAP/3.15.0
+    xtest-315-rpmb:
+        interface: content
+        read:
+            - $SNAP/3.15.0-rpmb
     xtest-316:
         interface: content
         read:
             - $SNAP/3.16.0
+    xtest-316-rpmb:
+        interface: content
+        read:
+            - $SNAP/3.16.0-rpmb
     xtest-317:
         interface: content
         read:
             - $SNAP/3.17.0
+    xtest-317-rpmb:
+        interface: content
+        read:
+            - $SNAP/3.17.0-rpmb
     xtest-318:
         interface: content
         read:
             - $SNAP/3.18.0
+    xtest-318-rpmb:
+        interface: content
+        read:
+            - $SNAP/3.18.0-rpmb
     xtest-319:
         interface: content
         read:
             - $SNAP/3.19.0
+    xtest-319-rpmb:
+        interface: content
+        read:
+            - $SNAP/3.19.0-rpmb
     xtest-320:
         interface: content
         read:
             - $SNAP/3.20.0
+    xtest-320-rpmb:
+        interface: content
+        read:
+            - $SNAP/3.20.0-rpmb
     xtest-321:
         interface: content
         read:
             - $SNAP/3.21.0
+    xtest-321-rpmb:
+        interface: content
+        read:
+            - $SNAP/3.21.0-rpmb
     xtest-322:
         interface: content
         read:
             - $SNAP/3.22.0
-
+    xtest-322-rpmb:
+        interface: content
+        read:
+            - $SNAP/3.22.0-rpmb

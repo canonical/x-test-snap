@@ -42,7 +42,7 @@ $ sudo snap install x-test --channel=<UBUNTU-CORE-VER>/stable
 # Choose x-test version
 $ sudo snap connect x-test:xtest x-test:xtest-<314~322>
 # Run x-test
-$ sudo x-test.tee-supplicant &
+$ sudo snap start x-test.tee-supplicant
 $ sudo x-test.xtest
 
 # Note: please disconnect the existing connection when connecting to a new x-test version
